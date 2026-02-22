@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { InsertCall, Call, agentSessions, calls, InsertAgentSession } from "../drizzle/schema";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -69,7 +69,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -143,7 +144,8 @@ export async function deleteCallRecord(id: number) {
 export async function upsertAgentSession(data: InsertAgentSession) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.insert(agentSessions).values(data).onDuplicateKeyUpdate({
+  return await db.insert(agentSessions).values(data).onConflictDoUpdate({
+    target: agentSessions.sessionId,
     set: {
       lastActiveAt: new Date(),
     },
