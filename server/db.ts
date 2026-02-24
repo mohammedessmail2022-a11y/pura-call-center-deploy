@@ -1,16 +1,77 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { InsertCall, Call, agentSessions, calls, InsertAgentSession } from "../drizzle/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _initialized = false;
+
+async function initializeTables(db: ReturnType<typeof drizzle>) {
+  if (_initialized) return;
+  try {
+    await db.execute(sql`
+      DO $$ BEGIN CREATE TYPE role AS ENUM ('user', 'admin'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN CREATE TYPE status AS ENUM ('no_answer', 'confirmed', 'redirected'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        "openId" VARCHAR(64) NOT NULL UNIQUE,
+        name TEXT,
+        email VARCHAR(320),
+        "loginMethod" VARCHAR(64),
+        role role NOT NULL DEFAULT 'user',
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+        "lastSignedIn" TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS agent_sessions (
+        id SERIAL PRIMARY KEY,
+        "agentName" VARCHAR(255) NOT NULL,
+        "sessionId" VARCHAR(64) NOT NULL UNIQUE,
+        "isAdmin" INTEGER NOT NULL DEFAULT 0,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+        "lastActiveAt" TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS calls (
+        id SERIAL PRIMARY KEY,
+        "patientName" VARCHAR(255) NOT NULL,
+        "appointmentId" VARCHAR(50) NOT NULL,
+        "appointmentTime" VARCHAR(50) NOT NULL,
+        "agentName" VARCHAR(255) NOT NULL,
+        status status NOT NULL DEFAULT 'no_answer',
+        comment TEXT,
+        "numberOfTrials" INTEGER NOT NULL DEFAULT 1,
+        "isActive" INTEGER NOT NULL DEFAULT 1,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    _initialized = true;
+    console.log("[Database] Tables initialized successfully");
+  } catch (error) {
+    console.error("[Database] Failed to initialize tables:", error);
+  }
+}
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const pool = new pg.Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.DATABASE_URL.includes('render.com') ? { rejectUnauthorized: false } : undefined,
+      });
+      _db = drizzle(pool);
+      await initializeTables(_db);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -197,6 +258,5 @@ export async function deactivateAllCalls() {
 export async function getActiveCalls() {
   const db = await getDb();
   if (!db) return [];
-  const { eq } = await import("drizzle-orm");
   return await db.select().from(calls).where(eq(calls.isActive, 1)).orderBy((c) => c.createdAt) || [];
 }
