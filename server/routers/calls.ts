@@ -58,7 +58,7 @@ export const callsRouter = router({
           return { success: true, message: "Call updated successfully", isUpdate: true };
         } else {
           // Create new call with numberOfTrials = 1
-          const result = await createCall({
+          await createCall({
             patientName: input.patientName,
             appointmentId: input.appointmentId,
             appointmentTime: input.appointmentTime,
@@ -71,11 +71,11 @@ export const callsRouter = router({
           });
           return { success: true, message: "Call created successfully", isUpdate: false };
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to create/update call:", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create/update call",
+          message: error?.message || "Failed to create/update call",
         });
       }
     }),

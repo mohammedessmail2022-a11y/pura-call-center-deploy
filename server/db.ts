@@ -188,7 +188,7 @@ export async function getCallById(id: number) {
 export async function createCall(data: InsertCall) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(calls).values(data);
+  const result = await db.insert(calls).values(data).returning();
   return result;
 }
 
