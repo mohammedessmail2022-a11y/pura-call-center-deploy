@@ -74,7 +74,7 @@ export default function Home() {
 
     // Check if user is trying to login as admin
     const requestedAdmin = isAdmin;
-    const isValidAdmin = ADMIN_NAMES.includes(agentName);
+    const isValidAdmin = ADMIN_NAMES.some((name) => name.toLowerCase() === agentName.trim().toLowerCase());
 
     if (requestedAdmin && !isValidAdmin) {
       setAdminError("Invalid admin credentials");
