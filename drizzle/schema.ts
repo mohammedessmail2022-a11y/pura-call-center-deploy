@@ -1,7 +1,7 @@
 import { integer, pgEnum, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 const roleEnum = pgEnum("role", ["user", "admin"]);
-const statusEnum = pgEnum("status", ["no_answer", "confirmed", "redirected", "other"]);
+const statusEnum = pgEnum("status", ["no_answer", "confirmed", "redirected"]);
 
 /**
  * Core user table backing auth flow.
