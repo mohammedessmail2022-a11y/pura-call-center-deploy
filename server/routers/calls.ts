@@ -32,6 +32,8 @@ export const callsRouter = router({
         appointmentTime: z.string().min(1, "Appointment time is required"),
         agentName: z.string().min(1, "Agent name is required"),
         comment: z.string().optional().default(""),
+        callCategory: z.string().optional().nullable(),
+        callSubCategory: z.string().optional().nullable(),
       })
     )
     .mutation(async ({ input }) => {
@@ -49,6 +51,8 @@ export const callsRouter = router({
             agentName: input.agentName,
             status: "no_answer",
             comment: input.comment,
+            callCategory: input.callCategory,
+            callSubCategory: input.callSubCategory,
             numberOfTrials: (existingCall.numberOfTrials || 1) + 1,
           });
           return { success: true, message: "Call updated successfully", isUpdate: true };
@@ -61,6 +65,8 @@ export const callsRouter = router({
             agentName: input.agentName,
             status: "no_answer",
             comment: input.comment,
+            callCategory: input.callCategory,
+            callSubCategory: input.callSubCategory,
             numberOfTrials: 1,
           });
           return { success: true, message: "Call created successfully", isUpdate: false };
@@ -85,8 +91,10 @@ export const callsRouter = router({
         appointmentId: z.string().optional(),
         appointmentTime: z.string().optional(),
         agentName: z.string().optional(),
-        status: z.enum(["no_answer", "confirmed", "redirected"]).optional(),
+        status: z.enum(["no_answer", "confirmed", "redirected", "other"]).optional(),
         comment: z.string().optional(),
+        callCategory: z.string().optional().nullable(),
+        callSubCategory: z.string().optional().nullable(),
         numberOfTrials: z.number().optional(),
       })
     )
@@ -130,7 +138,7 @@ export const callsRouter = router({
       const allCalls = await getAllCalls();
       
       // Generate CSV content
-      const headers = ["ID", "Patient Name", "Appointment ID", "Appointment Time", "Agent Name", "Status", "Number of Trials", "Comment", "Created At"];
+      const headers = ["ID", "Patient Name", "Appointment ID", "Appointment Time", "Agent Name", "Status", "Number of Trials", "Comment", "Category", "Sub-Category", "Created At"];
       const rows = allCalls.map((call) => [
         call.id.toString(),
         `"${call.patientName}"`,
@@ -140,6 +148,8 @@ export const callsRouter = router({
         call.status,
         call.numberOfTrials.toString(),
         `"${(call.comment || "").replace(/"/g, '""')}"`,
+        `"${(call.callCategory || "").replace(/"/g, '""')}"`,
+        `"${(call.callSubCategory || "").replace(/"/g, '""')}"`,
         new Date(call.createdAt).toISOString(),
       ]);
 

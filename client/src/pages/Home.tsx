@@ -14,6 +14,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import TimePicker from "@/components/TimePicker";
 import { ADMIN_NAMES } from "../../../shared/constants";
 
+// Category and Sub-category mapping
+const CATEGORY_SUBCATEGORY_MAP: Record<string, string[]> = {
+  "Patient_is_not_available": [
+    "Switched_off",
+    "Salamtk_appt_not_interested",
+    "Patient_too_old",
+    "Does_Not_Have_UAE_Pass",
+    "Refuse_to_download_the_app",
+    "Will_go_to_inperson",
+    "Bedridden_patient",
+    "Patient_change_mind",
+    "Patient_joined_late",
+    "Got_an_earlier_booking",
+    "Dependent_booking"
+  ],
+  "Doctor_Unavailable": [
+    "Doctor_busy_with_inperson",
+    "Doctor_not_responding",
+    "Doctor_on_off_leave"
+  ],
+  "Pass_Issue": [],
+  "Tech_Issue": [],
+  "Under_age_booking": [],
+  "Cisco_Call": []
+};
+
 export default function Home() {
   const { currentAgent, login, logout, isLoading: authLoading } = useAgent();
   const { calls, addCall, updateCall, deleteCall, exportCalls, refreshCalls, startNewDay, isLoading: callsLoading } = useCall();
@@ -28,7 +54,9 @@ export default function Home() {
   const [appointmentId, setAppointmentId] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("12:00");
   const [comment, setComment] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<"no_answer" | "confirmed" | "redirected" | null>(null);
+  const [callCategory, setCallCategory] = useState<string | null>(null);
+  const [callSubCategory, setCallSubCategory] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<"no_answer" | "confirmed" | "redirected" | "other" | null>(null);
   const [isInProgress, setIsInProgress] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -83,6 +111,8 @@ export default function Home() {
         appointmentTime,
         agentName: currentAgent.agentName,
         comment: "",
+        callCategory: null,
+        callSubCategory: null,
       });
       setIsInProgress(true);
       toast.success("Call started");
@@ -103,12 +133,16 @@ export default function Home() {
         await updateCall(recentCall.id, {
           status: selectedStatus,
           comment,
+          callCategory,
+          callSubCategory,
         });
 
         setPatientName("");
         setAppointmentId("");
         setAppointmentTime("12:00");
         setComment("");
+        setCallCategory(null);
+        setCallSubCategory(null);
         setSelectedStatus(null);
         setIsInProgress(false);
         setShowCommentModal(false);
@@ -125,6 +159,8 @@ export default function Home() {
     setAppointmentId("");
     setAppointmentTime("12:00");
     setComment("");
+    setCallCategory(null);
+    setCallSubCategory(null);
     setSelectedStatus(null);
     setIsInProgress(false);
     setShowCommentModal(false);
@@ -155,6 +191,8 @@ export default function Home() {
       setAppointmentId("");
       setAppointmentTime("12:00");
       setComment("");
+      setCallCategory(null);
+      setCallSubCategory(null);
       setSelectedStatus(null);
       setIsInProgress(false);
       toast.success("New day started - patient list cleared.");
@@ -190,6 +228,8 @@ export default function Home() {
       setAppointmentId(call.appointmentId);
       setAppointmentTime(call.appointmentTime);
       setComment(call.comment || "");
+      setCallCategory(call.callCategory || null);
+      setCallSubCategory(call.callSubCategory || null);
       setSelectedStatus(call.status);
     }
   };
@@ -202,6 +242,8 @@ export default function Home() {
         appointmentId,
         appointmentTime,
         comment,
+        callCategory,
+        callSubCategory,
         status: selectedStatus || "no_answer",
       });
       setEditingId(null);
@@ -209,6 +251,8 @@ export default function Home() {
       setAppointmentId("");
       setAppointmentTime("12:00");
       setComment("");
+      setCallCategory(null);
+      setCallSubCategory(null);
       setSelectedStatus(null);
       toast.success("Call updated");
     } catch (error) {
@@ -232,15 +276,16 @@ export default function Home() {
 
   // Calculate agent statistics
   const agentStats = useMemo(() => {
-    const stats: Record<string, { total: number; confirmed: number; noAnswer: number; redirected: number }> = {};
+    const stats: Record<string, { total: number; confirmed: number; noAnswer: number; redirected: number; other: number }> = {};
     calls.forEach((call) => {
       if (!stats[call.agentName]) {
-        stats[call.agentName] = { total: 0, confirmed: 0, noAnswer: 0, redirected: 0 };
+        stats[call.agentName] = { total: 0, confirmed: 0, noAnswer: 0, redirected: 0, other: 0 };
       }
       stats[call.agentName].total++;
       if (call.status === "confirmed") stats[call.agentName].confirmed++;
       if (call.status === "no_answer") stats[call.agentName].noAnswer++;
       if (call.status === "redirected") stats[call.agentName].redirected++;
+      if (call.status === "other") stats[call.agentName].other++;
     });
     return stats;
   }, [calls]);
@@ -252,8 +297,12 @@ export default function Home() {
       confirmed: calls.filter((c) => c.status === "confirmed").length,
       noAnswer: calls.filter((c) => c.status === "no_answer").length,
       redirected: calls.filter((c) => c.status === "redirected").length,
+      other: calls.filter((c) => c.status === "other").length,
     };
   }, [calls]);
+
+  // Get available subcategories based on selected category
+  const availableSubcategories = callCategory ? CATEGORY_SUBCATEGORY_MAP[callCategory] || [] : [];
 
   // Login screen
   if (!currentAgent) {
@@ -436,10 +485,10 @@ export default function Home() {
           {isInProgress && (
             <Card className="bg-slate-800 border-slate-700 p-6 space-y-4">
               <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wide">Call Status</h3>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => setSelectedStatus(selectedStatus === "no_answer" ? null : "no_answer")}
-                  className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 border text-sm ${
+                  className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 border text-xs ${
                     selectedStatus === "no_answer"
                       ? "bg-red-900/50 border-red-500 text-red-400"
                       : "bg-red-900/20 border-red-500/30 text-red-400 hover:bg-red-900/30"
@@ -450,7 +499,7 @@ export default function Home() {
 
                 <button
                   onClick={() => setSelectedStatus(selectedStatus === "confirmed" ? null : "confirmed")}
-                  className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 border text-sm ${
+                  className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 border text-xs ${
                     selectedStatus === "confirmed"
                       ? "bg-green-900/50 border-green-500 text-green-400"
                       : "bg-green-900/20 border-green-500/30 text-green-400 hover:bg-green-900/30"
@@ -461,13 +510,24 @@ export default function Home() {
 
                 <button
                   onClick={() => setSelectedStatus(selectedStatus === "redirected" ? null : "redirected")}
-                  className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 border text-sm ${
+                  className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 border text-xs ${
                     selectedStatus === "redirected"
                       ? "bg-orange-900/50 border-orange-500 text-orange-400"
                       : "bg-orange-900/20 border-orange-500/30 text-orange-400 hover:bg-orange-900/30"
                   }`}
                 >
                   → Redirected
+                </button>
+
+                <button
+                  onClick={() => setSelectedStatus(selectedStatus === "other" ? null : "other")}
+                  className={`py-3 px-4 rounded-lg font-semibold transition-all duration-200 border text-xs ${
+                    selectedStatus === "other"
+                      ? "bg-purple-900/50 border-purple-500 text-purple-400"
+                      : "bg-purple-900/20 border-purple-500/30 text-purple-400 hover:bg-purple-900/30"
+                  }`}
+                >
+                  ◆ Other
                 </button>
               </div>
             </Card>
@@ -529,7 +589,9 @@ export default function Home() {
                           ? "border-green-500/50"
                           : call.status === "no_answer"
                             ? "border-red-500/50"
-                            : "border-orange-500/50"
+                            : call.status === "redirected"
+                              ? "border-orange-500/50"
+                              : "border-purple-500/50"
                       }`}
                     >
                       <div className="space-y-1">
@@ -545,20 +607,31 @@ export default function Home() {
                                 ? "bg-green-900/50 text-green-400"
                                 : call.status === "no_answer"
                                   ? "bg-red-900/50 text-red-400"
-                                  : "bg-orange-900/50 text-orange-400"
+                                  : call.status === "redirected"
+                                    ? "bg-orange-900/50 text-orange-400"
+                                    : "bg-purple-900/50 text-purple-400"
                             }`}
                           >
                             {call.status === "confirmed"
                               ? "✓"
                               : call.status === "no_answer"
                                 ? "✕"
-                                : "→"}
+                                : call.status === "redirected"
+                                  ? "→"
+                                  : "◆"}
                           </span>
                         </div>
                         <p className="text-xs text-slate-400">
                           <span className="font-semibold">{call.appointmentTime}</span> • {call.agentName}
                         </p>
                         {call.comment && <p className="text-xs text-slate-300 italic">{call.comment}</p>}
+                        {(call.callCategory || call.callSubCategory) && (
+                          <p className="text-xs text-slate-300">
+                            {call.callCategory && <span className="font-semibold">{call.callCategory}</span>}
+                            {call.callCategory && call.callSubCategory && <span> • </span>}
+                            {call.callSubCategory && <span>{call.callSubCategory}</span>}
+                          </p>
+                        )}
                         {currentAgent.isAdmin && (
                           <div className="flex gap-1 mt-1">
                             <Button
@@ -601,7 +674,7 @@ export default function Home() {
               {/* Total Statistics */}
               <div>
                 <h3 className="text-sm font-semibold text-slate-200 mb-3">Overall Statistics</h3>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-5 gap-3">
                   <div className="bg-slate-700 p-3 rounded">
                     <p className="text-xs text-slate-400">Total Calls</p>
                     <p className="text-2xl font-bold text-white">{totalStats.total}</p>
@@ -618,6 +691,10 @@ export default function Home() {
                     <p className="text-xs text-orange-400">Redirected</p>
                     <p className="text-2xl font-bold text-orange-400">{totalStats.redirected}</p>
                   </div>
+                  <div className="bg-purple-900/30 p-3 rounded border border-purple-500/30">
+                    <p className="text-xs text-purple-400">Other</p>
+                    <p className="text-2xl font-bold text-purple-400">{totalStats.other}</p>
+                  </div>
                 </div>
               </div>
 
@@ -631,10 +708,11 @@ export default function Home() {
                         <p className="font-semibold text-white">{agent}</p>
                         <p className="text-xs text-slate-400">Total: {stats.total}</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="text-green-400">✓ Confirmed: {stats.confirmed}</div>
-                        <div className="text-red-400">✕ No Answer: {stats.noAnswer}</div>
-                        <div className="text-orange-400">→ Redirected: {stats.redirected}</div>
+                      <div className="grid grid-cols-5 gap-2 text-xs">
+                        <div className="text-green-400">✓ {stats.confirmed}</div>
+                        <div className="text-red-400">✕ {stats.noAnswer}</div>
+                        <div className="text-orange-400">→ {stats.redirected}</div>
+                        <div className="text-purple-400">◆ {stats.other}</div>
                       </div>
                     </div>
                   ))}
@@ -649,9 +727,46 @@ export default function Home() {
       <Dialog open={showCommentModal} onOpenChange={setShowCommentModal}>
         <DialogContent className="bg-slate-800 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-cyan-400">Comments & Call Status</DialogTitle>
+            <DialogTitle className="text-cyan-400">Comments & Call Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-200 mb-2">Category</label>
+              <Select value={callCategory || ""} onValueChange={(value) => {
+                setCallCategory(value || null);
+                setCallSubCategory(null);
+              }}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-700 border-slate-600">
+                  {Object.keys(CATEGORY_SUBCATEGORY_MAP).map((category) => (
+                    <SelectItem key={category} value={category} className="text-white">
+                      {category.replace(/_/g, " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {availableSubcategories.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-slate-200 mb-2">Sub-Category</label>
+                <Select value={callSubCategory || ""} onValueChange={(value) => setCallSubCategory(value || null)}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Select a sub-category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    {availableSubcategories.map((subcategory) => (
+                      <SelectItem key={subcategory} value={subcategory} className="text-white">
+                        {subcategory.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-slate-200 mb-2">Comments (Optional)</label>
               <Textarea

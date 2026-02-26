@@ -7,8 +7,10 @@ export interface Call {
   appointmentId: string;
   appointmentTime: string;
   agentName: string;
-  status: "no_answer" | "confirmed" | "redirected";
+  status: "no_answer" | "confirmed" | "redirected" | "other";
   comment: string | null;
+  callCategory: string | null;
+  callSubCategory: string | null;
   numberOfTrials: number;
   createdAt: Date;
   updatedAt: Date;
@@ -17,7 +19,7 @@ export interface Call {
 interface CallContextType {
   calls: Call[];
   isLoading: boolean;
-  addCall: (call: { patientName: string; appointmentId: string; appointmentTime: string; agentName: string; comment?: string | null }) => Promise<void>;
+  addCall: (call: { patientName: string; appointmentId: string; appointmentTime: string; agentName: string; comment?: string | null; callCategory?: string | null; callSubCategory?: string | null }) => Promise<void>;
   updateCall: (id: number, updates: Partial<Call>) => Promise<void>;
   deleteCall: (id: number) => Promise<void>;
   exportCalls: () => Promise<{ csv: string; fileName: string }>;
@@ -54,7 +56,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [listQuery.data]);
 
-  const addCall = async (call: { patientName: string; appointmentId: string; appointmentTime: string; agentName: string; comment?: string | null }) => {
+  const addCall = async (call: { patientName: string; appointmentId: string; appointmentTime: string; agentName: string; comment?: string | null; callCategory?: string | null; callSubCategory?: string | null }) => {
     setIsLoading(true);
     try {
       await createMutation.mutateAsync({
@@ -63,6 +65,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         appointmentTime: call.appointmentTime,
         agentName: call.agentName,
         comment: call.comment ? call.comment : "",
+        callCategory: call.callCategory || null,
+        callSubCategory: call.callSubCategory || null,
       });
       // Refetch calls after creation
       await listQuery.refetch();
@@ -78,6 +82,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cleanData = {
         ...updateData,
         comment: updateData.comment || undefined,
+        callCategory: updateData.callCategory || undefined,
+        callSubCategory: updateData.callSubCategory || undefined,
       };
       await updateMutation.mutateAsync({
         id,

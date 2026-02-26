@@ -15,7 +15,16 @@ async function initializeTables(db: ReturnType<typeof drizzle>) {
       DO $$ BEGIN CREATE TYPE role AS ENUM ('user', 'admin'); EXCEPTION WHEN duplicate_object THEN null; END $$;
     `);
     await db.execute(sql`
-      DO $$ BEGIN CREATE TYPE status AS ENUM ('no_answer', 'confirmed', 'redirected'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+      DO $$ BEGIN CREATE TYPE status AS ENUM ('no_answer', 'confirmed', 'redirected', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN CREATE TYPE call_category AS ENUM ('Patient_is_not_available', 'Doctor_Unavailable', 'Pass_Issue', 'Tech_Issue', 'Under_age_booking', 'Cisco_Call'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN CREATE TYPE patient_not_available_subcategory AS ENUM ('Switched_off', 'Salamtk_appt_not_interested', 'Patient_too_old', 'Does_Not_Have_UAE_Pass', 'Refuse_to_download_the_app', 'Will_go_to_inperson', 'Bedridden_patient', 'Patient_change_mind', 'Patient_joined_late', 'Got_an_earlier_booking', 'Dependent_booking'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+    `);
+    await db.execute(sql`
+      DO $$ BEGIN CREATE TYPE doctor_unavailable_subcategory AS ENUM ('Doctor_busy_with_inperson', 'Doctor_not_responding', 'Doctor_on_off_leave'); EXCEPTION WHEN duplicate_object THEN null; END $$;
     `);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
@@ -49,6 +58,8 @@ async function initializeTables(db: ReturnType<typeof drizzle>) {
         "agentName" VARCHAR(255) NOT NULL,
         status status NOT NULL DEFAULT 'no_answer',
         comment TEXT,
+        "callCategory" VARCHAR(100),
+        "callSubCategory" VARCHAR(100),
         "numberOfTrials" INTEGER NOT NULL DEFAULT 1,
         "isActive" INTEGER NOT NULL DEFAULT 1,
         "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),

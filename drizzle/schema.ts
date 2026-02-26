@@ -1,7 +1,36 @@
 import { integer, pgEnum, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const roleEnum = pgEnum("role", ["user", "admin"]);
-export const statusEnum = pgEnum("status", ["no_answer", "confirmed", "redirected"]);
+export const statusEnum = pgEnum("status", ["no_answer", "confirmed", "redirected", "other"]);
+
+export const callCategoryEnum = pgEnum("call_category", [
+  "Patient_is_not_available",
+  "Doctor_Unavailable",
+  "Pass_Issue",
+  "Tech_Issue",
+  "Under_age_booking",
+  "Cisco_Call"
+]);
+
+export const patientNotAvailableSubcategoryEnum = pgEnum("patient_not_available_subcategory", [
+  "Switched_off",
+  "Salamtk_appt_not_interested",
+  "Patient_too_old",
+  "Does_Not_Have_UAE_Pass",
+  "Refuse_to_download_the_app",
+  "Will_go_to_inperson",
+  "Bedridden_patient",
+  "Patient_change_mind",
+  "Patient_joined_late",
+  "Got_an_earlier_booking",
+  "Dependent_booking"
+]);
+
+export const doctorUnavailableSubcategoryEnum = pgEnum("doctor_unavailable_subcategory", [
+  "Doctor_busy_with_inperson",
+  "Doctor_not_responding",
+  "Doctor_on_off_leave"
+]);
 
 /**
  * Core user table backing auth flow.
@@ -47,6 +76,8 @@ export const calls = pgTable("calls", {
   agentName: varchar("agentName", { length: 255 }).notNull(),
   status: statusEnum("status").default("no_answer").notNull(),
   comment: text("comment"),
+  callCategory: varchar("callCategory", { length: 100 }),
+  callSubCategory: varchar("callSubCategory", { length: 100 }),
   numberOfTrials: integer("numberOfTrials").default(1).notNull(),
   isActive: integer("isActive").default(1).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
