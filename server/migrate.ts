@@ -15,6 +15,9 @@ export async function runStartupMigrations(): Promise<void> {
     await db.execute(
       sql`ALTER TABLE calls ADD COLUMN IF NOT EXISTS "callSubCategory" text`
     );
+    await db.execute(
+      sql`ALTER TYPE status ADD VALUE IF NOT EXISTS 'other'`
+    );
   } catch (err) {
     console.warn("[Database] Startup migration warning:", err);
   }
