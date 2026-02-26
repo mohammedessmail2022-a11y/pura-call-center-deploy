@@ -60,4 +60,4 @@ export const calls = pgTable("calls", {
 export type Call = typeof calls.$inferSelect;
 export type InsertCall = typeof calls.$inferInsert;
 
-export const ADMIN_NAMES = ["Chandan", "Esmail"];
+export const ADMIN_NAMES = ["Chandan", "Esmail", "Zain"];
