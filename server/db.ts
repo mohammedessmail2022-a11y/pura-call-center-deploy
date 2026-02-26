@@ -1,88 +1,16 @@
-import { eq, and, sql } from "drizzle-orm";
-import { InsertCall, Call, agentSessions, calls, InsertAgentSession } from "../drizzle/schema";
+import { eq, and } from "drizzle-orm";
+import { InsertCall, agentSessions, calls, InsertAgentSession } from "../drizzle/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
 import { InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
-let _initialized = false;
-
-async function initializeTables(db: ReturnType<typeof drizzle>) {
-  if (_initialized) return;
-  try {
-    await db.execute(sql`
-      DO $$ BEGIN CREATE TYPE role AS ENUM ('user', 'admin'); EXCEPTION WHEN duplicate_object THEN null; END $$;
-    `);
-    await db.execute(sql`
-      DO $$ BEGIN CREATE TYPE status AS ENUM ('no_answer', 'confirmed', 'redirected', 'other'); EXCEPTION WHEN duplicate_object THEN null; END $$;
-    `);
-    await db.execute(sql`
-      DO $$ BEGIN CREATE TYPE call_category AS ENUM ('Patient_is_not_available', 'Doctor_Unavailable', 'Pass_Issue', 'Tech_Issue', 'Under_age_booking', 'Cisco_Call'); EXCEPTION WHEN duplicate_object THEN null; END $$;
-    `);
-    await db.execute(sql`
-      DO $$ BEGIN CREATE TYPE patient_not_available_subcategory AS ENUM ('Switched_off', 'Salamtk_appt_not_interested', 'Patient_too_old', 'Does_Not_Have_UAE_Pass', 'Refuse_to_download_the_app', 'Will_go_to_inperson', 'Bedridden_patient', 'Patient_change_mind', 'Patient_joined_late', 'Got_an_earlier_booking', 'Dependent_booking'); EXCEPTION WHEN duplicate_object THEN null; END $$;
-    `);
-    await db.execute(sql`
-      DO $$ BEGIN CREATE TYPE doctor_unavailable_subcategory AS ENUM ('Doctor_busy_with_inperson', 'Doctor_not_responding', 'Doctor_on_off_leave'); EXCEPTION WHEN duplicate_object THEN null; END $$;
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        "openId" VARCHAR(64) NOT NULL UNIQUE,
-        name TEXT,
-        email VARCHAR(320),
-        "loginMethod" VARCHAR(64),
-        role role NOT NULL DEFAULT 'user',
-        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "lastSignedIn" TIMESTAMP NOT NULL DEFAULT NOW()
-      );
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS agent_sessions (
-        id SERIAL PRIMARY KEY,
-        "agentName" VARCHAR(255) NOT NULL,
-        "sessionId" VARCHAR(64) NOT NULL UNIQUE,
-        "isAdmin" INTEGER NOT NULL DEFAULT 0,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "lastActiveAt" TIMESTAMP NOT NULL DEFAULT NOW()
-      );
-    `);
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS calls (
-        id SERIAL PRIMARY KEY,
-        "patientName" VARCHAR(255) NOT NULL,
-        "appointmentId" VARCHAR(50) NOT NULL,
-        "appointmentTime" VARCHAR(50) NOT NULL,
-        "agentName" VARCHAR(255) NOT NULL,
-        status status NOT NULL DEFAULT 'no_answer',
-        comment TEXT,
-        "callCategory" VARCHAR(100),
-        "callSubCategory" VARCHAR(100),
-        "numberOfTrials" INTEGER NOT NULL DEFAULT 1,
-        "isActive" INTEGER NOT NULL DEFAULT 1,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT NOW()
-      );
-    `);
-    _initialized = true;
-    console.log("[Database] Tables initialized successfully");
-  } catch (error) {
-    console.error("[Database] Failed to initialize tables:", error);
-  }
-}
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const pool = new pg.Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DATABASE_URL.includes('render.com') ? { rejectUnauthorized: false } : undefined,
-      });
-      _db = drizzle(pool);
-      await initializeTables(_db);
+      _db = drizzle(process.env.DATABASE_URL);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -141,10 +69,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onConflictDoUpdate({
-      target: users.openId,
-      set: updateSet,
-    });
+    await db
+      .insert(users)
+      .values(values)
+      .onConflictDoUpdate({ target: users.openId, set: updateSet });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
@@ -188,7 +116,7 @@ export async function getCallById(id: number) {
 export async function createCall(data: InsertCall) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(calls).values(data).returning();
+  const result = await db.insert(calls).values(data);
   return result;
 }
 
@@ -198,7 +126,10 @@ export async function createCall(data: InsertCall) {
 export async function updateCallRecord(id: number, data: Partial<InsertCall>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.update(calls).set(data).where(eq(calls.id, id));
+  return await db
+    .update(calls)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(calls.id, id));
 }
 
 /**
@@ -216,12 +147,10 @@ export async function deleteCallRecord(id: number) {
 export async function upsertAgentSession(data: InsertAgentSession) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.insert(agentSessions).values(data).onConflictDoUpdate({
-    target: agentSessions.sessionId,
-    set: {
-      lastActiveAt: new Date(),
-    },
-  });
+  return await db
+    .insert(agentSessions)
+    .values(data)
+    .onConflictDoUpdate({ target: agentSessions.sessionId, set: { lastActiveAt: new Date() } });
 }
 
 /**
@@ -269,5 +198,6 @@ export async function deactivateAllCalls() {
 export async function getActiveCalls() {
   const db = await getDb();
   if (!db) return [];
+  const { eq } = await import("drizzle-orm");
   return await db.select().from(calls).where(eq(calls.isActive, 1)).orderBy((c) => c.createdAt) || [];
 }
