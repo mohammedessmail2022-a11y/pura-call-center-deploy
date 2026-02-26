@@ -49,6 +49,8 @@ export const calls = pgTable("calls", {
   agentName: varchar("agentName", { length: 255 }).notNull(),
   status: statusEnum("status").default("no_answer").notNull(),
   comment: text("comment"),
+  callCategory: text("callCategory"),
+  callSubCategory: text("callSubCategory"),
   numberOfTrials: integer("numberOfTrials").default(1).notNull(),
   isActive: integer("isActive").default(1).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
