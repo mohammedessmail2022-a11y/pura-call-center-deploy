@@ -11,7 +11,11 @@ export const callsRouter = router({
     try {
       const allCalls = await getAllCalls();
       // Sort by newest first
-      return allCalls.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return allCalls.sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
     } catch (error) {
       console.error("Failed to fetch calls:", error);
       throw new TRPCError({
@@ -146,11 +150,11 @@ export const callsRouter = router({
         `"${call.appointmentTime}"`,
         `"${call.agentName}"`,
         call.status,
-        call.numberOfTrials.toString(),
+        (call.numberOfTrials || 0).toString(),
         `"${(call.comment || "").replace(/"/g, '""')}"`,
         `"${(call.callCategory || "").replace(/"/g, '""')}"`,
         `"${(call.callSubCategory || "").replace(/"/g, '""')}"`,
-        new Date(call.createdAt).toISOString(),
+        call.createdAt ? new Date(call.createdAt).toISOString() : "",
       ]);
 
       const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
@@ -192,7 +196,11 @@ export const callsRouter = router({
     try {
       const activeCalls = await getActiveCalls();
       // Sort by newest first
-      return activeCalls.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return activeCalls.sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
     } catch (error) {
       console.error("Failed to fetch active calls:", error);
       throw new TRPCError({
