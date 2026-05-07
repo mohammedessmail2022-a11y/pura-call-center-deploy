@@ -81,9 +81,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { createdAt, updatedAt, ...updateData } = updates;
       const cleanData = {
         ...updateData,
-        comment: updateData.comment || undefined,
-        callCategory: updateData.callCategory || undefined,
-        callSubCategory: updateData.callSubCategory || undefined,
+        comment: updateData.comment !== undefined ? updateData.comment : undefined,
+        callCategory: updateData.callCategory !== undefined ? updateData.callCategory : undefined,
+        callSubCategory: updateData.callSubCategory !== undefined ? updateData.callSubCategory : undefined,
       };
       await updateMutation.mutateAsync({
         id,
