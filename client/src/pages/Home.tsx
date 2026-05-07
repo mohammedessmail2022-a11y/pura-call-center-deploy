@@ -311,7 +311,7 @@ export default function Home() {
         <Card className="bg-slate-800 border-slate-700 p-8 max-w-md w-full space-y-6 shadow-2xl">
           <div className="text-center space-y-2">
             <img
-              src="https://pura.ai/wp-content/uploads/2025/06/logo.png"
+              src="/logo.png"
               alt="PURA Logo"
               className="h-12 mx-auto"
             />
@@ -366,7 +366,7 @@ export default function Home() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <img
-            src="https://pura.ai/wp-content/uploads/2025/06/logo.png"
+            src="/logo.png"
             alt="PURA Logo"
             className="h-8"
           />
