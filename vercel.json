@@ -1,0 +1,27 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm run build:client",
+  "outputDirectory": "dist/public",
+  "regions": ["iad1"],
+  "functions": {
+    "api/trpc-handler.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/trpc/:path*",
+      "destination": "/api/trpc-handler?__trpc_path=:path*"
+    },
+    {
+      "source": "/api/trpc",
+      "destination": "/api/trpc-handler?__trpc_path="
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

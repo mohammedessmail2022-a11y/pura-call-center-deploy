@@ -81,13 +81,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { createdAt, updatedAt, ...updateData } = updates;
       const cleanData = {
         ...updateData,
-        comment: updateData.comment !== undefined ? updateData.comment : undefined,
-        callCategory: updateData.callCategory !== undefined ? updateData.callCategory : undefined,
-        callSubCategory: updateData.callSubCategory !== undefined ? updateData.callSubCategory : undefined,
+        comment: updateData.comment ?? undefined,
+        callCategory: updateData.callCategory ?? undefined,
+        callSubCategory: updateData.callSubCategory ?? undefined,
       };
+      const { id: _, ...cleanDataWithoutId } = cleanData;
       await updateMutation.mutateAsync({
         id,
-        ...cleanData,
+        ...cleanDataWithoutId,
       });
       // Refetch calls after update
       await listQuery.refetch();
