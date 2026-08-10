@@ -1,0 +1,14 @@
+server/_core/index.ts
+server/_core/vite.ts
+start.js
+render.yaml
+Dockerfile
+.git
+.gitignore
+patches/
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+pnpm-lock.yaml
