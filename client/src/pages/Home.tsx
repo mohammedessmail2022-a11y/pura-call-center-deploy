@@ -73,6 +73,8 @@ export default function Home() {
   const [callSubCategory, setCallSubCategory] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<"no_answer" | "confirmed" | "redirected" | "other" | null>(null);
   const [isInProgress, setIsInProgress] = useState(false);
+  const [isStartingCall, setIsStartingCall] = useState(false);
+  const [isSavingCall, setIsSavingCall] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   // Search and filter state
@@ -127,6 +129,9 @@ export default function Home() {
       return;
     }
 
+    // Move to the next action immediately; saving the initial row continues in the background.
+    setIsInProgress(true);
+    setIsStartingCall(true);
     try {
       await addCall({
         patientName,
@@ -137,10 +142,12 @@ export default function Home() {
         callCategory: null,
         callSubCategory: null,
       });
-      setIsInProgress(true);
       toast.success("Call started");
     } catch (error) {
+      setIsInProgress(false);
       toast.error("Failed to start call");
+    } finally {
+      setIsStartingCall(false);
     }
   };
 
@@ -150,30 +157,47 @@ export default function Home() {
       return;
     }
 
+    const recentCall = calls[0];
+    if (!recentCall || recentCall.agentName !== currentAgent?.agentName) {
+      toast.error("Please wait until the call is ready to save");
+      return;
+    }
+
+    const savedForm = { patientName, appointmentId, appointmentTime, comment, callCategory, callSubCategory, selectedStatus };
+    // Close the flow immediately; the update itself is already optimistic in the data context.
+    setPatientName("");
+    setAppointmentId("");
+    setAppointmentTime("12:00");
+    setComment("");
+    setCallCategory(null);
+    setCallSubCategory(null);
+    setSelectedStatus(null);
+    setIsInProgress(false);
+    setShowCommentModal(false);
+    setIsSavingCall(true);
+
     try {
-      const recentCall = calls[0];
-      if (recentCall && recentCall.agentName === currentAgent?.agentName) {
-        await updateCall(recentCall.id, {
-          status: selectedStatus,
-          comment,
-          callCategory,
-          callSubCategory,
-        });
-
-        setPatientName("");
-        setAppointmentId("");
-        setAppointmentTime("12:00");
-        setComment("");
-        setCallCategory(null);
-        setCallSubCategory(null);
-        setSelectedStatus(null);
-        setIsInProgress(false);
-        setShowCommentModal(false);
-
-        toast.success("Call saved successfully");
-      }
+      await updateCall(recentCall.id, {
+        status: selectedStatus,
+        comment: savedForm.comment,
+        callCategory: savedForm.callCategory,
+        callSubCategory: savedForm.callSubCategory,
+      });
+      toast.success("Call saved successfully");
     } catch (error) {
+      // Restore the form if the server rejects the save so the agent can retry safely.
+      setPatientName(savedForm.patientName);
+      setAppointmentId(savedForm.appointmentId);
+      setAppointmentTime(savedForm.appointmentTime);
+      setComment(savedForm.comment);
+      setCallCategory(savedForm.callCategory);
+      setCallSubCategory(savedForm.callSubCategory);
+      setSelectedStatus(savedForm.selectedStatus);
+      setIsInProgress(true);
+      setShowCommentModal(true);
       toast.error("Failed to save call");
+    } finally {
+      setIsSavingCall(false);
     }
   };
 
@@ -259,27 +283,39 @@ export default function Home() {
 
   const handleSaveEdit = async () => {
     if (!editingId) return;
+    const savedForm = { patientName, appointmentId, appointmentTime, comment, callCategory, callSubCategory, selectedStatus };
+    setEditingId(null);
+    setPatientName("");
+    setAppointmentId("");
+    setAppointmentTime("12:00");
+    setComment("");
+    setCallCategory(null);
+    setCallSubCategory(null);
+    setSelectedStatus(null);
+    setIsSavingCall(true);
     try {
       await updateCall(editingId, {
-        patientName,
-        appointmentId,
-        appointmentTime,
-        comment,
-        callCategory,
-        callSubCategory,
-        status: selectedStatus || "no_answer",
+        patientName: savedForm.patientName,
+        appointmentId: savedForm.appointmentId,
+        appointmentTime: savedForm.appointmentTime,
+        comment: savedForm.comment,
+        callCategory: savedForm.callCategory,
+        callSubCategory: savedForm.callSubCategory,
+        status: savedForm.selectedStatus || "no_answer",
       });
-      setEditingId(null);
-      setPatientName("");
-      setAppointmentId("");
-      setAppointmentTime("12:00");
-      setComment("");
-      setCallCategory(null);
-      setCallSubCategory(null);
-      setSelectedStatus(null);
       toast.success("Call updated");
     } catch (error) {
+      setEditingId(editingId);
+      setPatientName(savedForm.patientName);
+      setAppointmentId(savedForm.appointmentId);
+      setAppointmentTime(savedForm.appointmentTime);
+      setComment(savedForm.comment);
+      setCallCategory(savedForm.callCategory);
+      setCallSubCategory(savedForm.callSubCategory);
+      setSelectedStatus(savedForm.selectedStatus);
       toast.error("Failed to update call");
+    } finally {
+      setIsSavingCall(false);
     }
   };
 
@@ -498,7 +534,7 @@ export default function Home() {
 
             <Button
               onClick={handleStartCall}
-              disabled={isInProgress || callsLoading}
+              disabled={isInProgress || callsLoading || isStartingCall || isSavingCall}
               className="w-full bg-cyan-600 text-white hover:bg-cyan-700 py-6 text-lg font-semibold flex items-center justify-center gap-2"
             >
               <Phone size={20} />
@@ -563,10 +599,11 @@ export default function Home() {
             <div className="flex gap-3">
               <Button
                 onClick={() => setShowCommentModal(true)}
+                disabled={isStartingCall || isSavingCall}
                 className="flex-1 bg-cyan-600 text-white hover:bg-cyan-700 py-3 font-semibold flex items-center justify-center gap-2"
               >
                 <Save size={18} />
-                Save Call
+                {isStartingCall ? "Preparing…" : isSavingCall ? "Saving…" : "Save Call"}
               </Button>
               <Button
                 onClick={handleCancelCall}
@@ -819,9 +856,10 @@ export default function Home() {
             <div className="flex gap-3">
               <Button
                 onClick={handleSaveCall}
+                disabled={isStartingCall || isSavingCall}
                 className="flex-1 bg-cyan-600 text-white hover:bg-cyan-700 py-2 font-semibold"
               >
-                Save Call
+                {isStartingCall ? "Preparing…" : isSavingCall ? "Saving…" : "Save Call"}
               </Button>
               <Button
                 onClick={() => setShowCommentModal(false)}
