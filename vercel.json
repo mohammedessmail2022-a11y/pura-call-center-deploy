@@ -1,6 +1,28 @@
 {
   "version": 2,
-  "buildCommand": "pnpm run build:client",
-  "outputDirectory": "dist"
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    },
+    {
+      "src": "api/trpc.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/trpc/:path*",
+      "destination": "/api/trpc?__trpc_path=:path*"
+    },
+    {
+      "source": "/api/trpc",
+      "destination": "/api/trpc?__trpc_path="
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
-// Trigger clean build
