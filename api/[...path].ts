@@ -5,12 +5,13 @@ import { createContext } from "../server/_core/context";
 import { runStartupMigrations } from "../server/migrate";
 
 const app = express();
-
-// Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// tRPC API
+app.get("/api/health", (_req, res) => {
+  res.status(200).json({ status: "ok", message: "Express Bridge is alive" });
+});
+
 app.use(
   "/api/trpc",
   createExpressMiddleware({
@@ -19,17 +20,11 @@ app.use(
   })
 );
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Express Bridge is alive" });
-});
-
-// Run migrations (idempotent)
 let migrationsStarted = false;
-app.use(async (req, res, next) => {
+app.use(async (_req, _res, next) => {
   if (!migrationsStarted) {
     migrationsStarted = true;
-    runStartupMigrations().catch(err => console.error("Migration error:", err));
+    runStartupMigrations().catch((err) => console.error("[Database] Migration error:", err));
   }
   next();
 });
