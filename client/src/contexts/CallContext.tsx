@@ -31,7 +31,7 @@ interface CallContextType {
   summaryRows: ActiveCallSummaryRow[];
   setSearch: (query: string) => void;
   loadMoreCalls: () => void;
-  addCall: (call: { patientName: string; appointmentId: string; appointmentTime: string; agentName: string; comment?: string | null; callCategory?: string | null; callSubCategory?: string | null }) => Promise<void>;
+  addCall: (call: { patientName: string; appointmentId: string; appointmentTime: string; agentName: string; comment?: string | null; callCategory?: string | null; callSubCategory?: string | null }) => Promise<Call>;
   updateCall: (id: number, updates: Partial<Call>) => Promise<void>;
   deleteCall: (id: number) => Promise<void>;
   exportCalls: () => Promise<{ csv: string; fileName: string }>;
@@ -130,11 +130,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callCategory: call.callCategory || null,
         callSubCategory: call.callSubCategory || null,
       });
-      if (result.call) {
-        const savedCall = toCall(result.call);
-        setCalls((existing) => [savedCall, ...existing.filter((item) => item.id !== savedCall.id)]);
+      if (!result.call) {
+        throw new Error("The server did not return the saved call");
       }
+      const savedCall = toCall(result.call);
+      setCalls((existing) => [savedCall, ...existing.filter((item) => item.id !== savedCall.id)]);
       refreshInBackground();
+      return savedCall;
     } finally {
       setActionLoading(false);
     }

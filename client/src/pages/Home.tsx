@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useAgent } from "@/contexts/AgentContext";
 import { useCall } from "@/contexts/CallContext";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,8 @@ export default function Home() {
   const [isStartingCall, setIsStartingCall] = useState(false);
   const [isSavingCall, setIsSavingCall] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const activeCallIdRef = useRef<number | null>(null);
+  const startCallPromiseRef = useRef<Promise<{ id: number }> | null>(null);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -118,7 +120,7 @@ export default function Home() {
     }
   };
 
-  const handleStartCall = async () => {
+  const handleStartCall = () => {
     if (!patientName.trim() || !appointmentId.trim() || !appointmentTime.trim()) {
       toast.error("Please fill in all fields");
       return;
@@ -129,26 +131,33 @@ export default function Home() {
       return;
     }
 
-    // Move to the next action immediately; saving the initial row continues in the background.
+    // Enter the call flow immediately and retain the create promise for an immediate Save action.
+    activeCallIdRef.current = null;
     setIsInProgress(true);
     setIsStartingCall(true);
-    try {
-      await addCall({
-        patientName,
-        appointmentId,
-        appointmentTime,
-        agentName: currentAgent.agentName,
-        comment: "",
-        callCategory: null,
-        callSubCategory: null,
+    const createPromise = addCall({
+      patientName,
+      appointmentId,
+      appointmentTime,
+      agentName: currentAgent.agentName,
+      comment: "",
+      callCategory: null,
+      callSubCategory: null,
+    });
+    startCallPromiseRef.current = createPromise;
+
+    void createPromise
+      .then((savedCall) => {
+        activeCallIdRef.current = savedCall.id;
+        toast.success("Call started");
+      })
+      .catch(() => {
+        setIsInProgress(false);
+        toast.error("Failed to start call");
+      })
+      .finally(() => {
+        setIsStartingCall(false);
       });
-      toast.success("Call started");
-    } catch (error) {
-      setIsInProgress(false);
-      toast.error("Failed to start call");
-    } finally {
-      setIsStartingCall(false);
-    }
   };
 
   const handleSaveCall = async () => {
@@ -157,14 +166,8 @@ export default function Home() {
       return;
     }
 
-    const recentCall = calls[0];
-    if (!recentCall || recentCall.agentName !== currentAgent?.agentName) {
-      toast.error("Please wait until the call is ready to save");
-      return;
-    }
-
     const savedForm = { patientName, appointmentId, appointmentTime, comment, callCategory, callSubCategory, selectedStatus };
-    // Close the flow immediately; the update itself is already optimistic in the data context.
+    // Close the flow immediately. If creation is still running, the save waits for that same request in the background.
     setPatientName("");
     setAppointmentId("");
     setAppointmentTime("12:00");
@@ -177,8 +180,15 @@ export default function Home() {
     setIsSavingCall(true);
 
     try {
-      await updateCall(recentCall.id, {
-        status: selectedStatus,
+      const createdCall = activeCallIdRef.current
+        ? { id: activeCallIdRef.current }
+        : await startCallPromiseRef.current;
+      if (!createdCall?.id) {
+        throw new Error("Call creation did not complete");
+      }
+      activeCallIdRef.current = createdCall.id;
+      await updateCall(createdCall.id, {
+        status: savedForm.selectedStatus,
         comment: savedForm.comment,
         callCategory: savedForm.callCategory,
         callSubCategory: savedForm.callSubCategory,
@@ -599,7 +609,7 @@ export default function Home() {
             <div className="flex gap-3">
               <Button
                 onClick={() => setShowCommentModal(true)}
-                disabled={isStartingCall || isSavingCall}
+                disabled={isSavingCall}
                 className="flex-1 bg-cyan-600 text-white hover:bg-cyan-700 py-3 font-semibold flex items-center justify-center gap-2"
               >
                 <Save size={18} />
@@ -856,7 +866,7 @@ export default function Home() {
             <div className="flex gap-3">
               <Button
                 onClick={handleSaveCall}
-                disabled={isStartingCall || isSavingCall}
+                disabled={isSavingCall}
                 className="flex-1 bg-cyan-600 text-white hover:bg-cyan-700 py-2 font-semibold"
               >
                 {isStartingCall ? "Preparing…" : isSavingCall ? "Saving…" : "Save Call"}
