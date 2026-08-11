@@ -1,3 +1,4 @@
+console.log("[tRPC] Loading handler file...");
 import { nodeHTTPRequestHandler } from "@trpc/server/adapters/node-http";
 import { createContext } from "../server/_core/context";
 import { runStartupMigrations } from "../server/migrate";
