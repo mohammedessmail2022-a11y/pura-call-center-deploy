@@ -1,19 +1,5 @@
 {
   "version": 2,
   "buildCommand": "pnpm run build:client",
-  "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/api/trpc/:path*",
-      "destination": "/api/trpc-handler?__trpc_path=:path*"
-    },
-    {
-      "source": "/api/trpc",
-      "destination": "/api/trpc-handler?__trpc_path="
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "outputDirectory": "dist"
 }
