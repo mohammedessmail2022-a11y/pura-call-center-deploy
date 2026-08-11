@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, ilike, or, sql } from "drizzle-orm";
 import { InsertCall, agentSessions, calls, InsertAgentSession } from "../drizzle/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
@@ -207,6 +207,66 @@ export async function deactivateAllCalls() {
 export async function getActiveCalls() {
   const db = await getDb();
   if (!db) return [];
-  const { eq } = await import("drizzle-orm");
-  return await db.select().from(calls).where(eq(calls.isActive, 1)).orderBy((c) => c.createdAt) || [];
+  return await db.select().from(calls).where(eq(calls.isActive, 1)).orderBy(desc(calls.createdAt), desc(calls.id));
+}
+
+/**
+ * Fetch a bounded, searchable page of active calls for the live dashboard.
+ * This prevents the browser from re-downloading the full historical list on every refresh.
+ */
+export async function getActiveCallsPage({
+  limit,
+  offset,
+  search,
+}: {
+  limit: number;
+  offset: number;
+  search?: string;
+}) {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+
+  const normalizedSearch = search?.trim();
+  const filters = [eq(calls.isActive, 1)];
+  if (normalizedSearch) {
+    const pattern = `%${normalizedSearch}%`;
+    filters.push(
+      or(
+        ilike(calls.patientName, pattern),
+        ilike(calls.appointmentId, pattern),
+        ilike(calls.appointmentTime, pattern),
+      )!,
+    );
+  }
+  const whereClause = and(...filters);
+
+  const [items, countRows] = await Promise.all([
+    db
+      .select()
+      .from(calls)
+      .where(whereClause)
+      .orderBy(desc(calls.createdAt), desc(calls.id))
+      .limit(limit)
+      .offset(offset),
+    db.select({ count: sql<number>`count(*)::int` }).from(calls).where(whereClause),
+  ]);
+
+  return { items, total: Number(countRows[0]?.count ?? 0) };
+}
+
+/**
+ * Return compact aggregate figures for the admin dashboard without loading call rows.
+ */
+export async function getActiveCallSummary() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      agentName: calls.agentName,
+      status: calls.status,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(calls)
+    .where(eq(calls.isActive, 1))
+    .groupBy(calls.agentName, calls.status);
 }

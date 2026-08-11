@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { getAllCalls, createCall, updateCallRecord, deleteCallRecord, findDuplicateCall, deactivateAllCalls, getActiveCalls } from "../db";
+import { getAllCalls, createCall, updateCallRecord, deleteCallRecord, findDuplicateCall, deactivateAllCalls, getActiveCalls, getActiveCallsPage, getActiveCallSummary } from "../db";
 import { TRPCError } from "@trpc/server";
 
 export const callsRouter = router({
@@ -21,6 +21,44 @@ export const callsRouter = router({
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to fetch calls",
+      });
+    }
+  }),
+
+  /**
+   * Load a small, searchable page for the live list rather than every active call.
+   */
+  listActivePage: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().int().min(10).max(200).default(100),
+        offset: z.number().int().min(0).default(0),
+        search: z.string().trim().max(100).optional(),
+      }),
+    )
+    .query(async ({ input }) => {
+      try {
+        return await getActiveCallsPage(input);
+      } catch (error) {
+        console.error("Failed to fetch active call page:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch calls",
+        });
+      }
+    }),
+
+  /**
+   * Compact counts for the admin dashboard; avoids downloading every active row.
+   */
+  activeSummary: publicProcedure.query(async () => {
+    try {
+      return await getActiveCallSummary();
+    } catch (error) {
+      console.error("Failed to fetch active call summary:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to fetch call summary",
       });
     }
   }),

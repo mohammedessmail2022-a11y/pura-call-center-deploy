@@ -42,7 +42,22 @@ const CATEGORY_SUBCATEGORY_MAP: Record<string, string[]> = {
 
 export default function Home() {
   const { currentAgent, login, logout, isLoading: authLoading } = useAgent();
-  const { calls, addCall, updateCall, deleteCall, exportCalls, refreshCalls, startNewDay, isLoading: callsLoading } = useCall();
+  const {
+    calls,
+    addCall,
+    updateCall,
+    deleteCall,
+    exportCalls,
+    refreshCalls,
+    startNewDay,
+    isLoading: callsLoading,
+    isFetchingMore,
+    hasMore,
+    totalCalls,
+    summaryRows,
+    setSearch,
+    loadMoreCalls,
+  } = useCall();
 
   // Login form state
   const [agentName, setAgentName] = useState("");
@@ -64,6 +79,14 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
+
+  // Search is executed on the server after a short pause, so the browser never needs every patient row.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchQuery === "__CLEARED__" ? "" : searchQuery);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, setSearch]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,32 +297,34 @@ export default function Home() {
     );
   }, [calls, searchQuery]);
 
-  // Calculate agent statistics
+  // Dashboard statistics come from compact server aggregates, not from the currently loaded page.
   const agentStats = useMemo(() => {
     const stats: Record<string, { total: number; confirmed: number; noAnswer: number; redirected: number; other: number }> = {};
-    calls.forEach((call) => {
-      if (!stats[call.agentName]) {
-        stats[call.agentName] = { total: 0, confirmed: 0, noAnswer: 0, redirected: 0, other: 0 };
+    summaryRows.forEach((row) => {
+      if (!stats[row.agentName]) {
+        stats[row.agentName] = { total: 0, confirmed: 0, noAnswer: 0, redirected: 0, other: 0 };
       }
-      stats[call.agentName].total++;
-      if (call.status === "confirmed") stats[call.agentName].confirmed++;
-      if (call.status === "no_answer") stats[call.agentName].noAnswer++;
-      if (call.status === "redirected") stats[call.agentName].redirected++;
-      if (call.status === "other") stats[call.agentName].other++;
+      const agent = stats[row.agentName];
+      agent.total += row.count;
+      if (row.status === "confirmed") agent.confirmed += row.count;
+      if (row.status === "no_answer") agent.noAnswer += row.count;
+      if (row.status === "redirected") agent.redirected += row.count;
+      if (row.status === "other") agent.other += row.count;
     });
     return stats;
-  }, [calls]);
+  }, [summaryRows]);
 
-  // Calculate total statistics
   const totalStats = useMemo(() => {
-    return {
-      total: calls.length,
-      confirmed: calls.filter((c) => c.status === "confirmed").length,
-      noAnswer: calls.filter((c) => c.status === "no_answer").length,
-      redirected: calls.filter((c) => c.status === "redirected").length,
-      other: calls.filter((c) => c.status === "other").length,
-    };
-  }, [calls]);
+    const totals = { total: 0, confirmed: 0, noAnswer: 0, redirected: 0, other: 0 };
+    summaryRows.forEach((row) => {
+      totals.total += row.count;
+      if (row.status === "confirmed") totals.confirmed += row.count;
+      if (row.status === "no_answer") totals.noAnswer += row.count;
+      if (row.status === "redirected") totals.redirected += row.count;
+      if (row.status === "other") totals.other += row.count;
+    });
+    return totals;
+  }, [summaryRows]);
 
   // Get available subcategories based on selected category
   const availableSubcategories = callCategory ? CATEGORY_SUBCATEGORY_MAP[callCategory] || [] : [];
@@ -558,7 +583,9 @@ export default function Home() {
         {/* Right Column: Patient List */}
         <div className="lg:col-span-5">
           <Card className="bg-slate-800 border-slate-700 h-[calc(100vh-200px)] p-4 overflow-hidden flex flex-col">
-            <h3 className="text-lg font-bold text-cyan-400 mb-4">All Patients</h3>
+            <h3 className="text-lg font-bold text-cyan-400 mb-4">
+              All Patients <span className="text-sm font-normal text-slate-400">({searchQuery ? `${totalCalls} matches` : `${totalCalls} active`})</span>
+            </h3>
 
             {/* Search Bar */}
             <div className="mb-4 relative">
@@ -656,6 +683,19 @@ export default function Home() {
                     </Card>
                   ))
                 )}
+                  {hasMore && searchQuery !== "__CLEARED__" && (
+                    <div className="pt-2 text-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={loadMoreCalls}
+                        disabled={isFetchingMore}
+                        className="border-slate-600 text-slate-300 hover:bg-slate-600"
+                      >
+                        {isFetchingMore ? "Loading…" : "Load more patients"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </div>
