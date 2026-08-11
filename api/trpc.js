@@ -25747,13 +25747,12 @@ async function getAllCalls() {
 async function createCall(data) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(calls).values(data);
-  return result;
+  return await db.insert(calls).values(data).returning();
 }
 async function updateCallRecord(id, data) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return await db.update(calls).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(calls.id, id));
+  return await db.update(calls).set({ ...data, updatedAt: /* @__PURE__ */ new Date() }).where(eq(calls.id, id)).returning();
 }
 async function deleteCallRecord(id) {
   const db = await getDb();
@@ -25903,7 +25902,7 @@ var callsRouter = router({
         input.appointmentId
       );
       if (existingCall) {
-        await updateCallRecord(existingCall.id, {
+        const [updatedCall] = await updateCallRecord(existingCall.id, {
           appointmentTime: input.appointmentTime,
           agentName: input.agentName,
           status: "no_answer",
@@ -25912,9 +25911,9 @@ var callsRouter = router({
           callSubCategory: input.callSubCategory,
           numberOfTrials: (existingCall.numberOfTrials || 1) + 1
         });
-        return { success: true, message: "Call updated successfully", isUpdate: true };
+        return { success: true, message: "Call updated successfully", isUpdate: true, call: updatedCall };
       } else {
-        await createCall({
+        const [createdCall] = await createCall({
           patientName: input.patientName,
           appointmentId: input.appointmentId,
           appointmentTime: input.appointmentTime,
@@ -25925,7 +25924,7 @@ var callsRouter = router({
           callSubCategory: input.callSubCategory,
           numberOfTrials: 1
         });
-        return { success: true, message: "Call created successfully", isUpdate: false };
+        return { success: true, message: "Call created successfully", isUpdate: false, call: createdCall };
       }
     } catch (error51) {
       console.error("Failed to create/update call:", error51);
@@ -25954,8 +25953,8 @@ var callsRouter = router({
   ).mutation(async ({ input }) => {
     try {
       const { id, ...updateData } = input;
-      await updateCallRecord(id, updateData);
-      return { success: true, message: "Call updated successfully" };
+      const [updatedCall] = await updateCallRecord(id, updateData);
+      return { success: true, message: "Call updated successfully", call: updatedCall };
     } catch (error51) {
       console.error("Failed to update call:", error51);
       throw new TRPCError({

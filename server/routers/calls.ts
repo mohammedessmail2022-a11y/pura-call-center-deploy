@@ -88,7 +88,7 @@ export const callsRouter = router({
 
         if (existingCall) {
           // Update existing call and increment numberOfTrials
-          await updateCallRecord(existingCall.id, {
+          const [updatedCall] = await updateCallRecord(existingCall.id, {
             appointmentTime: input.appointmentTime,
             agentName: input.agentName,
             status: "no_answer",
@@ -97,10 +97,10 @@ export const callsRouter = router({
             callSubCategory: input.callSubCategory,
             numberOfTrials: (existingCall.numberOfTrials || 1) + 1,
           });
-          return { success: true, message: "Call updated successfully", isUpdate: true };
+          return { success: true, message: "Call updated successfully", isUpdate: true, call: updatedCall };
         } else {
           // Create new call with numberOfTrials = 1
-          await createCall({
+          const [createdCall] = await createCall({
             patientName: input.patientName,
             appointmentId: input.appointmentId,
             appointmentTime: input.appointmentTime,
@@ -111,7 +111,7 @@ export const callsRouter = router({
             callSubCategory: input.callSubCategory,
             numberOfTrials: 1,
           });
-          return { success: true, message: "Call created successfully", isUpdate: false };
+          return { success: true, message: "Call created successfully", isUpdate: false, call: createdCall };
         }
       } catch (error: any) {
         console.error("Failed to create/update call:", error);
@@ -143,8 +143,8 @@ export const callsRouter = router({
     .mutation(async ({ input }) => {
       try {
         const { id, ...updateData } = input;
-        await updateCallRecord(id, updateData);
-        return { success: true, message: "Call updated successfully" };
+        const [updatedCall] = await updateCallRecord(id, updateData);
+        return { success: true, message: "Call updated successfully", call: updatedCall };
       } catch (error) {
         console.error("Failed to update call:", error);
         throw new TRPCError({

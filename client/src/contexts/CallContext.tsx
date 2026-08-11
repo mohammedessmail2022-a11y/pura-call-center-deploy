@@ -101,6 +101,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
   };
 
+  const refreshInBackground = () => {
+    void utils.calls.listActivePage.invalidate();
+    void utils.calls.activeSummary.invalidate();
+  };
+
   const setSearch = (query: string) => {
     setCalls([]);
     setOffset(0);
@@ -116,7 +121,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addCall = async (call: { patientName: string; appointmentId: string; appointmentTime: string; agentName: string; comment?: string | null; callCategory?: string | null; callSubCategory?: string | null }) => {
     setActionLoading(true);
     try {
-      await createMutation.mutateAsync({
+      const result = await createMutation.mutateAsync({
         patientName: call.patientName,
         appointmentId: call.appointmentId,
         appointmentTime: call.appointmentTime,
@@ -125,7 +130,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callCategory: call.callCategory || null,
         callSubCategory: call.callSubCategory || null,
       });
-      await refreshCalls();
+      if (result.call) {
+        const savedCall = toCall(result.call);
+        setCalls((existing) => [savedCall, ...existing.filter((item) => item.id !== savedCall.id)]);
+      }
+      refreshInBackground();
     } finally {
       setActionLoading(false);
     }
@@ -135,14 +144,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActionLoading(true);
     try {
       const { createdAt, updatedAt, id: _ignoredId, ...updateData } = updates;
-      await updateMutation.mutateAsync({
+      const result = await updateMutation.mutateAsync({
         id,
         ...updateData,
         comment: updateData.comment ?? undefined,
         callCategory: updateData.callCategory ?? undefined,
         callSubCategory: updateData.callSubCategory ?? undefined,
       });
-      await refreshCalls();
+      if (result.call) {
+        const savedCall = toCall(result.call);
+        setCalls((existing) => existing.map((item) => (item.id === savedCall.id ? savedCall : item)));
+      }
+      refreshInBackground();
     } finally {
       setActionLoading(false);
     }
@@ -152,7 +165,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActionLoading(true);
     try {
       await deleteMutation.mutateAsync({ id });
-      await refreshCalls();
+      setCalls((existing) => existing.filter((item) => item.id !== id));
+      refreshInBackground();
     } finally {
       setActionLoading(false);
     }
@@ -169,7 +183,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await startNewDayMutation.mutateAsync();
       setCalls([]);
-      await refreshCalls();
+      refreshInBackground();
     } finally {
       setActionLoading(false);
     }

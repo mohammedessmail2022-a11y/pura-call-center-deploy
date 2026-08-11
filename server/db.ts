@@ -125,8 +125,7 @@ export async function getCallById(id: number) {
 export async function createCall(data: InsertCall) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(calls).values(data);
-  return result;
+  return await db.insert(calls).values(data).returning();
 }
 
 /**
@@ -138,7 +137,8 @@ export async function updateCallRecord(id: number, data: Partial<InsertCall>) {
   return await db
     .update(calls)
     .set({ ...data, updatedAt: new Date() })
-    .where(eq(calls.id, id));
+    .where(eq(calls.id, id))
+    .returning();
 }
 
 /**

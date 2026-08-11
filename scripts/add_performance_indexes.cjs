@@ -7,6 +7,8 @@ const statements = [
   `CREATE INDEX CONCURRENTLY IF NOT EXISTS calls_active_agent_status_idx
      ON public.calls ("agentName", status)
      WHERE "isActive" = 1`,
+  `CREATE INDEX CONCURRENTLY IF NOT EXISTS calls_patient_appointment_idx
+     ON public.calls ("patientName", "appointmentId")`,
 ];
 
 const searchStatements = [
