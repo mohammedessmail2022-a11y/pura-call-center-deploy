@@ -1,35 +1,22 @@
-console.log("[tRPC] Loading handler file...");
-import { nodeHTTPRequestHandler } from "@trpc/server/adapters/node-http";
-import { createContext } from "../server/_core/context";
-import { runStartupMigrations } from "../server/migrate";
-import { appRouter } from "../server/routers";
-
-let migrationsPromise: Promise<void> | undefined;
-
-function ensureMigrations(): Promise<void> {
-  migrationsPromise ??= runStartupMigrations();
-  return migrationsPromise;
-}
-
 export default async function handler(req: any, res: any) {
-  console.log(`[tRPC] ${req.method} ${req.url}`);
-
-  // 1. Handle health check
   if (req.url.includes("test-health")) {
-    return res.status(200).json({ status: "ok", message: "tRPC Node Handler is alive" });
+    return res.status(200).json({ status: "ok", message: "tRPC Node Handler is alive (early check)" });
   }
 
-  // 2. Run migrations (idempotent)
+  // Only import these when needed to avoid startup crashes if possible
+  const { nodeHTTPRequestHandler } = await import("@trpc/server/adapters/node-http");
+  const { createContext } = await import("../server/_core/context");
+  const { runStartupMigrations } = await import("../server/migrate");
+  const { appRouter } = await import("../server/routers");
+
+  console.log(`[tRPC] ${req.method} ${req.url}`);
+
   try {
-    await ensureMigrations();
+    await runStartupMigrations();
   } catch (err) {
     console.error("[tRPC] Migration error:", err);
   }
 
-  // 3. Handle tRPC request
-  // Vercel rewrites /api/trpc/:path* to /api/trpc?__trpc_path=:path*
-  // The nodeHTTPRequestHandler expects the path to be relative to the endpoint
-  
   return nodeHTTPRequestHandler({
     req,
     res,
