@@ -1,10 +1,7 @@
 {
   "version": 2,
-  "framework": "vite",
-  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm run build:client",
-  "outputDirectory": "dist/public",
-  "regions": ["iad1"],
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/trpc/:path*",
@@ -13,6 +10,10 @@
     {
       "source": "/api/trpc",
       "destination": "/api/trpc-handler?__trpc_path="
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
