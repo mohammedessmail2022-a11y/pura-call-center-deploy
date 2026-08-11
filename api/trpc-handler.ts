@@ -12,13 +12,19 @@ function ensureMigrations(): Promise<void> {
 
 async function handleRequest(request: Request): Promise<Response> {
   console.log(`[tRPC Handler] Received request: ${request.method} ${request.url}`);
+  
+  if (request.url.includes("test-health")) {
+    return new Response(JSON.stringify({ status: "ok", message: "tRPC Handler is alive" }), {
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
   try {
     console.log("[tRPC Handler] Ensuring migrations...");
     await ensureMigrations();
     console.log("[tRPC Handler] Migrations ensured.");
   } catch (err) {
     console.error("[tRPC Handler] Migration failed:", err);
-    // Continue anyway, as the DB might be ready
   }
 
   const url = new URL(request.url);
