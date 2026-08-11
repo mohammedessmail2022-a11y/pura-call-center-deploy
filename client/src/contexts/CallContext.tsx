@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 
 export interface Call {
@@ -106,11 +106,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void utils.calls.activeSummary.invalidate();
   };
 
-  const setSearch = (query: string) => {
-    setCalls([]);
-    setOffset(0);
-    setSearchValue(query.trim());
-  };
+  const setSearch = useCallback((query: string) => {
+    const normalizedQuery = query.trim();
+    setSearchValue((currentQuery) => {
+      // Home re-renders frequently as list and summary data update. Avoid clearing patients
+      // unless the user actually changed the search text.
+      if (currentQuery === normalizedQuery) return currentQuery;
+      setCalls([]);
+      setOffset(0);
+      return normalizedQuery;
+    });
+  }, []);
 
   const loadMoreCalls = () => {
     if (!listQuery.isFetching && hasMore) {
