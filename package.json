@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/_core/index.ts",
-    "build": "vite build",
+    "build": "vite build && esbuild api/_trpc.ts --bundle --platform=node --format=esm --outfile=api/trpc.js --external:pg --external:drizzle-orm --external:@trpc/server",
     "build:client": "vite build",
     "start:old": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
