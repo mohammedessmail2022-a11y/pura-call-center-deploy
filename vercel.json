@@ -2,12 +2,8 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/trpc/:path*",
-      "destination": "/api/server?__trpc_path=:path*"
-    },
-    {
-      "source": "/api/trpc",
-      "destination": "/api/server?__trpc_path="
+      "source": "/api/(.*)",
+      "destination": "/api/index"
     },
     {
       "source": "/(.*)",
