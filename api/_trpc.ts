@@ -16,7 +16,7 @@ export default async function handler(req: any, res: any) {
     console.log("[tRPC] Importing routers...");
     const { appRouter } = await import("../server/routers");
 
-    console.log(`[tRPC] Handling request: ${req.method} ${req.url}`);
+    console.log(`[tRPC] Handling request: ${req.method} ${req.url}, path: ${(req.query.__trpc_path || req.url.split('?')[0].replace('/api/trpc/', '')).replace(/^\//, '')}`);
 
     try {
       await runStartupMigrations();
@@ -29,7 +29,7 @@ export default async function handler(req: any, res: any) {
       res,
       router: appRouter,
       createContext: (opts) => createContext(opts as any),
-      path: req.query.__trpc_path || "",
+      path: (req.query.__trpc_path || req.url.split('?')[0].replace('/api/trpc/', '')).replace(/^\//, ''),
       onError({ error, path }) {
         console.error(`[tRPC Error] ${path ?? "unknown"}:`, error);
       },
