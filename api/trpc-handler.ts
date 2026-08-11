@@ -11,7 +11,15 @@ function ensureMigrations(): Promise<void> {
 }
 
 async function handleRequest(request: Request): Promise<Response> {
-  await ensureMigrations();
+  console.log(`[tRPC Handler] Received request: ${request.method} ${request.url}`);
+  try {
+    console.log("[tRPC Handler] Ensuring migrations...");
+    await ensureMigrations();
+    console.log("[tRPC Handler] Migrations ensured.");
+  } catch (err) {
+    console.error("[tRPC Handler] Migration failed:", err);
+    // Continue anyway, as the DB might be ready
+  }
 
   const url = new URL(request.url);
   const rewrittenPath = url.searchParams.get("__trpc_path");
@@ -24,17 +32,26 @@ async function handleRequest(request: Request): Promise<Response> {
     request = new Request(url, request);
   }
 
-  return fetchRequestHandler({
-    endpoint: "/api/trpc",
-    req: request,
-    router: appRouter,
-    createContext: createFetchContext,
-    onError({ error, path }) {
-      console.error(`[tRPC] ${path ?? "unknown"}:`, error);
-    },
-  });
+  console.log(`[tRPC Handler] Routing to tRPC: ${url.pathname}`);
+  try {
+    const response = await fetchRequestHandler({
+      endpoint: "/api/trpc",
+      req: request,
+      router: appRouter,
+      createContext: createFetchContext,
+      onError({ error, path }) {
+        console.error(`[tRPC Error] ${path ?? "unknown"}:`, error);
+      },
+    });
+    console.log(`[tRPC Handler] Response status: ${response.status}`);
+    return response;
+  } catch (err) {
+    console.error("[tRPC Handler] fetchRequestHandler crashed:", err);
+    return new Response(JSON.stringify({ error: "Internal Server Error", details: String(err) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 }
 
-export default {
-  fetch: handleRequest,
-};
+export default handleRequest;
