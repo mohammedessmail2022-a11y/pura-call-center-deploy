@@ -2,6 +2,7 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { createFetchContext } from "../server/_core/context";
 import { runStartupMigrations } from "../server/migrate";
 import { appRouter } from "../server/routers";
+// Trigger deployment after linking repo
 
 let migrationsPromise: Promise<void> | undefined;
 
