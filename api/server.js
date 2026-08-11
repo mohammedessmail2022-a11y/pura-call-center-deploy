@@ -12087,9 +12087,10 @@ var _db = null;
 async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
+      const dbUrl = process.env.DATABASE_URL || "";
       const pool2 = new Pool2({
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.DATABASE_URL.includes("supabase") ? { rejectUnauthorized: false } : false,
+        connectionString: dbUrl,
+        ssl: dbUrl.includes("supabase") ? { rejectUnauthorized: false } : false,
         max: 1
         // Keep it low for serverless
       });
