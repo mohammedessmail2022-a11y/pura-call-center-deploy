@@ -106,8 +106,9 @@
     "vitest": "^2.1.4"
   },
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
+  "packageManager": "pnpm@9.15.9",
   "pnpm": {
   }
 }
