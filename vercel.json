@@ -3,3 +3,4 @@
   "buildCommand": "pnpm run build:client",
   "outputDirectory": "dist"
 }
+// Trigger clean build
